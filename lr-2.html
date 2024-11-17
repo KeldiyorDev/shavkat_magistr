@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student GPA Prediction System - Linear Regression</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .login-container,
+        .student-table-container {
+            margin: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .login-container input,
+        .student-table-container input {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+            width: 250px;
+        }
+
+        .login-container button,
+        .student-table-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .login-container button:hover,
+        .student-table-container button:hover {
+            background-color: #45a049;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #chartContainer,
+        #dotChartContainer {
+            width: 80%;
+            max-width: 800px;
+            margin: 20px auto;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <!-- Login Page -->
+    <div class="login-container" id="login-container" style="display: none;">
+        <div class="form-container">
+            <h1>Login</h1>
+            <input type="text" id="username" placeholder="Enter Username" required />
+            <input type="password" id="password" placeholder="Enter Password" required />
+            <button onclick="login()">Login</button>
+        </div>
+    </div>
+
+    <!-- Student Data Table and Linear Regression Prediction Chart -->
+    <div class="student-table-container" id="student-table-container" style="display: block;">
+        <h1>Talabalarning GPA ballariga nisbattan tahlili. Linear Regression algoritmi misolida!</h1>
+        <table id="studentTable">
+            <thead>
+                <tr>
+                    <th>Nomi</th>
+                    <th>1 yil GPA</th>
+                    <th>2 yil GPA</th>
+                    <th>3 yil GPA</th>
+                    <th>Bashorat GPA</th>
+                </tr>
+            </thead>
+            <tbody id="studentTableBody">
+                <!-- Student data will be inserted here -->
+            </tbody>
+        </table>
+        <div id="chartContainer">
+            <canvas id="gpaChart"></canvas>
+        </div>
+        <div id="dotChartContainer">
+            <canvas id="dotChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Data and Script -->
+    <script src="./studentData.js"></script>
+    <script>
+        const data = talaba?.filter((item, index) => index>=10 && index<20)
+
+        loadStudentTable();
+
+        function loadStudentTable() {
+            const tableBody = document.getElementById('studentTableBody');
+            tableBody.innerHTML = '';
+
+            data.forEach(student => {
+                const predictedGPA = predictGPAUsingLinearRegression(student);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${student.name}</td>
+                    <td>${student.gpas[0]}</td>
+                    <td>${student.gpas[1]}</td>
+                    <td>${student.gpas[2]}</td>
+                    <td>${predictedGPA.toFixed(2)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            updateChart();
+            updateDotChart();
+        }
+
+        // Linear Regression function to predict the next GPA
+        function predictGPAUsingLinearRegression(student) {
+            const years = [1, 2, 3];
+            const { gpas } = student;
+
+            // Calculate means
+            const xMean = years.reduce((a, b) => a + b) / years.length;
+            const yMean = gpas.reduce((a, b) => a + b) / gpas.length;
+
+            // Calculate slope (m) and intercept (b) for the line y = mx + b
+            const numerator = years.reduce((sum, x, i) => sum + (x - xMean) * (gpas[i] - yMean), 0);
+            const denominator = years.reduce((sum, x) => sum + Math.pow(x - xMean, 2), 0);
+            const m = numerator / denominator;
+            const b = yMean - m * xMean;
+
+            // Predict GPA for the 4th year
+            return m * 4 + b;
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('gpaChart').getContext('2d');
+            const chartData = {
+                labels: ['Yil 1', 'Yil 2', 'Yil 3', 'Bashorat natijasi'],
+                datasets: data.map(student => {
+                    const predictedGPA = predictGPAUsingLinearRegression(student);
+                    return {
+                        label: student.name,
+                        data: [...student.gpas, predictedGPA],
+                        fill: false,
+                        borderColor: getRandomColor(),
+                        tension: 0.1
+                    };
+                })
+            };
+
+            if (window.gpaChartInstance) window.gpaChartInstance.destroy();
+
+            window.gpaChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { title: { display: true, text: 'Yil' } },
+                        y: { title: { display: true, text: 'GPA' }, suggestedMin: 0, suggestedMax: 4 }
+                    }
+                }
+            });
+        }
+
+        function updateDotChart() {
+            const ctx = document.getElementById('dotChart').getContext('2d');
+            const chartData = {
+                labels: data.map(student => student.name),
+                datasets: [{
+                    label: 'Bashorat GPA',
+                    data: data.map(student => ({
+                        x: predictGPAUsingLinearRegression(student),
+                        y: student.name
+                    })),
+                    backgroundColor: data.map(() => getRandomColor()),
+                    borderWidth: 1,
+                    pointRadius: 5
+                }]
+            };
+
+            if (window.dotChartInstance) window.dotChartInstance.destroy();
+
+            window.dotChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { title: { display: true, text: 'Predicted GPA' }, min: 0, max: 4 },
+                        y: { title: { display: true, text: 'Student Name' }, type: 'category' }
+                    }
+                }
+            });
+        }
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
+            return color;
+        }
+    </script>
+</body>
+
+</html>
